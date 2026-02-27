@@ -1,1 +1,11 @@
-
+date,category,amount,product
+2025-07-15,Electronics,1250.00,Laptop
+2025-07-16,Office Supplies,89.50,Printer Paper
+2025-07-16,Electronics,799.99,Monitor
+2025-07-17,Software,299.00,License
+2025-07-18,Electronics,199.50,Mouse
+2025-07-19,Office Supplies,45.99,Notebooks
+2025-07-19,Furniture,450.00,Chair
+2025-07-20,Electronics,899.00,Tablet
+2025-07-21,Software,599.00,Annual License
+2025-07-22,Office Supplies,29.99,Pens
