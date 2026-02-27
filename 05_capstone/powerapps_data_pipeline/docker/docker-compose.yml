@@ -1,0 +1,146 @@
+# Docker Compose configuration for PowerApps ETL Pipeline
+# Demonstrates multi-service orchestration
+
+version: '3.8'
+
+services:
+  # Main ETL Pipeline Service
+  pipeline:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile
+    container_name: powerapps-etl-pipeline
+    restart: unless-stopped
+    environment:
+      - PIPELINE_ENV=${PIPELINE_ENV:-production}
+      - DATA_DIR=/app/data
+      - CONFIG_FILE=/app/config/config.yaml
+      - TZ=America/Chicago
+    volumes:
+      # Mount configurations (read-only)
+      - ../config.yaml:/app/config/config.yaml:ro
+      # Mount data directories (persistent)
+      - pipeline_data:/app/data
+      - pipeline_logs:/app/logs
+      # Mount for development (optional, comment out in production)
+      # - ../:/app
+    networks:
+      - pipeline_network
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sqlite3; conn = sqlite3.connect('/app/data/database/data_warehouse.db'); conn.close()"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s
+
+  # Optional: PostgreSQL for production use (instead of SQLite)
+  postgres:
+    image: postgres:15-alpine
+    container_name: powerapps-postgres
+    restart: unless-stopped
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB:-powerapps_warehouse}
+      - POSTGRES_USER=${POSTGRES_USER:-pipeline}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-changeme_in_production}
+      - POSTGRES_HOST_AUTH_METHOD=scram-sha-256
+      - POSTGRES_INITDB_ARGS=--auth-host=scram-sha-256 --auth-local=scram-sha-256
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    networks:
+      - pipeline_network
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pipeline"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+
+  # Optional: pgAdmin for database management (development only)
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    container_name: powerapps-pgadmin
+    restart: unless-stopped
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=${PGADMIN_EMAIL:-admin@localhost.com}
+      - PGADMIN_DEFAULT_PASSWORD=${PGADMIN_PASSWORD:-admin}
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+    networks:
+      - pipeline_network
+    ports:
+      - "5050:80"
+    depends_on:
+      postgres:
+        condition: service_healthy
+    profiles:
+      - dev
+      - tools
+
+  # Optional: Jupyter for development/exploration
+  jupyter:
+    image: jupyter/datascience-notebook:latest
+    container_name: powerapps-jupyter
+    restart: unless-stopped
+    environment:
+      - JUPYTER_ENABLE_LAB=yes
+      - JUPYTER_TOKEN=${JUPYTER_TOKEN:-devtoken}
+    volumes:
+      - ../notebooks:/home/jovyan/work
+      - pipeline_data:/home/jovyan/data
+    networks:
+      - pipeline_network
+    ports:
+      - "8888:8888"
+    profiles:
+      - dev
+      - tools
+
+  # Optional: Airflow for orchestration (future enhancement)
+  # airflow:
+  #   image: apache/airflow:2.7.0
+  #   container_name: powerapps-airflow
+  #   restart: unless-stopped
+  #   environment:
+  #     - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+  #     - AIRFLOW__CORE__SQL_ALCHEMY_CONN=sqlite:////opt/airflow/airflow.db
+  #   volumes:
+  #     - ./airflow/dags:/opt/airflow/dags
+  #     - airflow_data:/opt/airflow
+  #   networks:
+  #     - pipeline_network
+  #   ports:
+  #     - "8080:8080"
+  #   profiles:
+  #     - airflow
+
+# Networks
+networks:
+  pipeline_network:
+    driver: bridge
+    name: powerapps_pipeline_network
+
+# Volumes for persistent data
+volumes:
+  pipeline_data:
+    name: powerapps_pipeline_data
+  pipeline_logs:
+    name: powerapps_pipeline_logs
+  postgres_data:
+    name: powerapps_postgres_data
+  pgadmin_data:
+    name: powerapps_pgadmin_data
+  # airflow_data:
+  #   name: powerapps_airflow_data
