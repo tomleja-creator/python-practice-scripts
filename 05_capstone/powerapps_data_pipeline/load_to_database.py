@@ -1,4 +1,3 @@
-
 """
 Database Loader for Transformed PowerApps Data
 Loads processed data into SQLite/PostgreSQL
@@ -345,4 +344,50 @@ class PowerAppsDataLoader:
             elif entity == 'feedback':
                 self.load_feedback(df, filename)
             elif entity == 'inventory':
-                self.load_inventory(df,
+                self.load_inventory(df, filename)
+            else:
+                logger.warning(f"Unknown entity type: {entity}")
+    
+    def get_load_summary(self) -> pd.DataFrame:
+        """Get summary of all loads"""
+        query = """
+            SELECT 
+                date(load_timestamp) as load_date,
+                entity,
+                COUNT(*) as batches,
+                SUM(records_loaded) as total_records
+            FROM load_history
+            GROUP BY load_date, entity
+            ORDER BY load_date DESC
+        """
+        return pd.read_sql_query(query, self.conn)
+
+def main():
+    parser = argparse.ArgumentParser(description='Load transformed data to database')
+    parser.add_argument('--db', type=str, default='data_warehouse.db', help='Database path')
+    parser.add_argument('--processed', type=str, default='processed_data', help='Processed data directory')
+    parser.add_argument('--summary', action='store_true', help='Show load summary')
+    
+    args = parser.parse_args()
+    
+    print("\n" + "="*60)
+    print("📥 PowerApps Data Loader")
+    print("="*60)
+    
+    loader = PowerAppsDataLoader(args.db, args.processed)
+    loader.connect()
+    loader.create_tables()
+    loader.load_all_processed_files()
+    loader.generate_sales_summary()
+    
+    if args.summary:
+        print("\n📊 Load Summary:")
+        summary = loader.get_load_summary()
+        print(summary.to_string(index=False))
+    
+    print("\n" + "="*60)
+    print("✅ Data loading complete")
+    print("="*60)
+
+if __name__ == "__main__":
+    main()
