@@ -399,4 +399,45 @@ if __name__ == "__main__":
     # Create client for JSONPlaceholder (free test API)
     client = JSONPlaceholderClient()
     
-   
+    # Example 1: GET request
+    print("\n📡 Example 1: GET posts for user 1")
+    posts = client.get_posts(user_id=1)
+    print(f"  Retrieved {len(posts)} posts")
+    print(f"  First post title: {posts[0]['title'] if posts else 'N/A'}")
+    
+    # Example 2: GET single resource
+    print("\n📡 Example 2: GET post #1")
+    post = client.get_post(1)
+    print(f"  Title: {post['title']}")
+    print(f"  Body: {post['body'][:100]}...")
+    
+    # Example 3: GET with relationship
+    print("\n📡 Example 3: GET comments for post #1")
+    comments = client.get_comments(1)
+    print(f"  Retrieved {len(comments)} comments")
+    print(f"  First comment: {comments[0]['name'] if comments else 'N/A'}")
+    
+    # Example 4: POST request (create)
+    print("\n📡 Example 4: POST - Create new post")
+    new_post = client.create_post(
+        title="Test Post from RESTClient",
+        body="This is a test post created by the REST API client demonstration",
+        user_id=1
+    )
+    print(f"  Created post with ID: {new_post.get('id', 'N/A')}")
+    
+    # Example 5: GET with filters
+    print("\n📡 Example 5: GET - Filtered todos (completed)")
+    todos = client.get_todos(completed=True)
+    print(f"  Retrieved {len(todos)} completed todos")
+    
+    # Example 6: Error handling demonstration
+    print("\n📡 Example 6: Error handling (404)")
+    try:
+        client.get_post(99999)  # This post doesn't exist
+    except Exception as e:
+        print(f"  ✅ Caught expected error: {e}")
+    
+    print("\n" + "="*60)
+    print("✅ RESTClient demonstration complete")
+    print("="*60)
