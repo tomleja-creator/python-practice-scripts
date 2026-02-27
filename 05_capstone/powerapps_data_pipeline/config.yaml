@@ -1,1 +1,104 @@
 
+# PowerApps ETL Pipeline Configuration
+
+pipeline:
+  name: "PowerApps Data Pipeline"
+  version: "1.0.0"
+  environment: "development"  # development, staging, production
+
+data_sources:
+  powerapps:
+    export_format: "json"
+    date_range_days: 30
+    entities:
+      - opportunities
+      - feedback
+      - inventory
+  
+  sample_data:
+    generate_on_run: true
+    default_days: 7
+
+transformation:
+  output_format: "parquet"  # parquet, csv, json
+  compression: "snappy"
+  quality_threshold: 0.8  # Minimum quality score
+  
+  rules:
+    opportunities:
+      remove_duplicates: true
+      fill_missing_notes: ""
+      calculate_derived_fields: true
+    
+    feedback:
+      sentiment_analysis: true
+      response_time_tracking: true
+    
+    inventory:
+      calculate_margin: true
+      flag_reorder: true
+
+database:
+  type: "sqlite"  # sqlite, postgresql
+  path: "data_warehouse.db"
+  
+  # For PostgreSQL (commented out)
+  # host: "localhost"
+  # port: 5432
+  # database: "powerapps_warehouse"
+  # username: "${DB_USER}"
+  # password: "${DB_PASS}"
+  
+  tables:
+    opportunities:
+      partition_by: "created_month"
+      indexes: ["customer", "stage", "region"]
+    
+    customer_feedback:
+      indexes: ["customer", "rating"]
+    
+    inventory:
+      indexes: ["sku", "status"]
+
+logging:
+  level: "INFO"
+  file: "pipeline.log"
+  format: "detailed"  # simple, detailed, json
+  
+  alerts:
+    on_failure: true
+    on_completion: true
+    email: "tomleja@gmail.com"  # Optional
+
+quality_checks:
+  enabled: true
+  fail_on_low_quality: false
+  
+  thresholds:
+    missing_data_max_pct: 20
+    duplicate_rows_max_pct: 5
+    outlier_max_count: 50
+
+reporting:
+  generate_summary: true
+  export_formats: ["json", "csv"]
+  
+  dashboards:
+    sales_kpi:
+      enabled: true
+      metrics: ["total_amount", "win_rate", "avg_deal_size"]
+    
+    feedback_analysis:
+      enabled: true
+      metrics: ["avg_rating", "sentiment_distribution"]
+    
+    inventory_health:
+      enabled: true
+      metrics: ["total_value", "reorder_items"]
+
+# For production deployment
+deployment:
+  schedule: "0 2 * * *"  # Run at 2 AM daily
+  retry_on_fail: true
+  max_retries: 3
+  notify_on_fail: true
